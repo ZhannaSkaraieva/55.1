@@ -2,7 +2,7 @@
 
 1. Use the npm init command to create a package.json
 
-npm init 
+npm init -y
 
 2. Install Express in the -myapp- directory and save it in the dependencies list. 
 
