@@ -88,13 +88,45 @@ app.post('/', (req, res) => {
 });
     
 //PUT   
-app.put('/', (req, res) => {
-res.send('Got a PUT request at /user')
-})
+app.put('/:id', (req, res) => {
+    //id - тут является динамическим параметром
+    const id = parseInt(req.params.id);
+    //Функция parseInt() принимает строку в качестве аргумента 
+    // и возвращает целое число в соответствии с указанным основанием системы счисления.Другими словами приводим id к числу
+    //req.params.id -Данное свойство представляет собой объект, содержащий свойства, 
+    // связанные с именованными параметрами маршрута. Например, если у нас имеется маршрут user/:name,
+    //  тогда значение свойства name можно получить через req.params.name. Дефолтным значением является {}.
+    const newUserName = req.body.name;
+    //reg.body - Содержит пары ключ-значение данных, содержащихся в запросе. 
+    fs.readFile('user.txt', 'utf8', (err, data) => { 
+        if (err) {
+            console.error(`Error reading file:`, err);
+        }
+        let users = JSON.parse(data);//users создается после чтения файла user.txt. и представляется в виде массива
+        let user = users.find(userId => userId.id === id);// функция .find() перебирает весь массив и 
+        // выбирает пользователя с нужным id после записывает его в переменную user
+        user.name = newName; // Изменяем имя
+        fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
+            if (err) {
+                console.error(`Error writing file:`, err);
+            }
+            res.json({ message: "New name", user });
+        });
+    });
+});
 
-// app.delete('/user', (req, res) => {
-//   res.send('Got a DELETE request at /user')
-// })
+app.delete('/:id', (req, res) => {
+    fs.readFile('user.txt', 'utf8', (err, data) => {
+        if (err) {
+            console.log(`Read error:`, err);
+        }
+        else {
+            res.setHeader('Content-Type', 'application/json'); //GET отправляет JSON, а не HTML
+            res.json(JSON.parse(data));
+        }
+    });      
+    res.send('Got a DELETE request at /user')
+});
 
 
 
