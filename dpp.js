@@ -96,7 +96,7 @@ app.put('/:id', (req, res) => {
     //req.params.id -Данное свойство представляет собой объект, содержащий свойства, 
     // связанные с именованными параметрами маршрута. Например, если у нас имеется маршрут user/:name,
     //  тогда значение свойства name можно получить через req.params.name. Дефолтным значением является {}.
-    const newUserName = req.body.name;
+    const newName = req.body.name;
     //reg.body - Содержит пары ключ-значение данных, содержащихся в запросе. 
     fs.readFile('user.txt', 'utf8', (err, data) => { 
         if (err) {
@@ -115,23 +115,30 @@ app.put('/:id', (req, res) => {
     });
 });
 
+//DELETE
 app.delete('/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    
     fs.readFile('user.txt', 'utf8', (err, data) => {
         if (err) {
             console.log(`Read error:`, err);
         }
-        else {
-            res.setHeader('Content-Type', 'application/json'); //GET отправляет JSON, а не HTML
-            res.json(JSON.parse(data));
-        }
+       
+        let users = data.trim() ? JSON.parse(data) : [];
+        let resultUsers = users.filter(user => user.id !== id);
+        //Метод filter() создаёт новый массив со всеми элементами, прошедшими проверку, задаваемую в передаваемой функции.
+
+        fs.writeFile('user.txt', JSON.stringify(resultUsers, null, 2), 'utf8', (err) => {
+            if (err) {
+                console.error(`Error writing file:`, err);
+            }
+            res.json({ message: "User delete" , id});
+        });
     });      
-    res.send('Got a DELETE request at /user')
+    
 });
 
-
-
-
-//4.создаем порт для прослушивания /метод который запускает сервер
+//5.создаем порт для прослушивания /метод который запускает сервер
 app.listen(PORT, (error) => {
     error ? console.log(error) : console.log(`Example app listening on port ${PORT}`)
 });
