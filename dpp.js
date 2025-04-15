@@ -2,29 +2,33 @@
 // 1. Импортируем модули.
 const express = require('express');
 const app = express();
-const PORT = 3000;
 const fs = require('node:fs');
+const router = express.Router();
+require('dotenv').config(); 
 
-app.use(express.json()); //Этот middleware позволяет Express автоматически разбирать JSON-данные из POST, PUT, PATCH запросов.
+//middleware позволяет Express автоматически разбирать JSON-данные из POST, PUT, PATCH запросов.
+//обязательно
+app.use(express.json()); 
+
+// middleware для обработки ошибки
+app.use((err, req, res, next) => {
+    console.log(err.stack); //логирование стека ошибки
+})
 
 // 2. Генерация массива.
-function genUsers() {
-    const users = []; //создаем пустой массив
-    const letters = 'abcdefghijklmnopqrst'; // создаю контент для формирования имени , 20 букв на каждый из обектов
-    for (let i = 0; i < letters.length; i++) { //создание обектов ограниченно количеством букв 
-        users.push({ //добавляет указанные элементы в конец массива и возвращает новую длину массива.
-            id: i + 1, //присваиваем каждому порядковый номер
-            name: letters[i], //выбирает из массива последовательно буквы 
-            age: Math.floor(Math.random() * (65 - 18 + 1)) + 18 //генерирует случайные числа от 18 до 65
-        });
-    };
-    return users;
-}
+const users = Array.from({ length: 20 }, (_,i) => ({
+    id: i + 1,
+    name: 'User' + (i + 1),
+    age: Math.floor(Math.random() * 100) + 1
+}));
+const data = [];
+users.forEach(user => {
+    data.push(user); 
+});
 
 // 3.Создание файла
-const data = genUsers();
 fs.writeFile('user.txt', JSON.stringify(data, null, 2), 'utf8', (err) => { 
-    //  syntax -  JSON.stringify(value, replacer, space) -  
+    // syntax -  JSON.stringify(value, replacer, space) -  
     // это метод, который превращает объект data в строку JSON с форматированием.
     // value - Значение для преобразования в строку JSON. 
     // replacer (второй аргумент, null) — можно передать функцию или массив, чтобы выбрать, 
@@ -38,57 +42,55 @@ fs.writeFile('user.txt', JSON.stringify(data, null, 2), 'utf8', (err) => {
 }
 );
 
+//вызывается каждый раз перед каждым API запросом
+const readFile = (req, res, next) => {
+    fs.readFile('user.txt', 'utf8', (err, data) => {
+        
+        if (err) {
+            return res.status(500).send({ error: 'Error reading' });
+        }
+        try {
+            req.users = JSON.parse(data);
+            console.log(`Reading works`);
+            next();
+        }
+        catch (err) {
+            return res.status(500).send({ error: 'Error parse' });
+        };
+    });
+};
+app.use(readFile);
+
+// Использование роутера
+app.use('/user', router);
+
 // 4.сoздание запросов
-//app.METHOD(PATH, HANDLER)
-//app - является экземпляром express.
-//METHOD — метод HTTP-запроса , в нижнем регистре.
-//PATH - это путь на сервере.
-//HANDLER -функция, выполняемая при совпадении маршрута.
-
-
 //GET
-app.get('/', (req, res) => { //вызываем функцию 
-    // ('/') - адрес по которому идет обращение
-    // второй параметр CB функция которая отрабатывает на этот запрос
-    fs.readFile('user.txt', 'utf8', (err, data) => { 
-                if (err) {
-                    console.log(`Read error:`, err);
-                    }
-                else {
-                    res.setHeader('Content-Type', 'application/json'); //GET отправляет JSON, а не HTML
-                    res.json(JSON.parse(data));
-                }
-                
-            });
+router.get('/:id', (req, res) => { //вызываем функцию    =>    //API метод
+    const id = parseInt(req.params.id);//parseInt() принимает строку в качестве 
+    // аргумента и возвращает целое число в соответствии с указанным основанием системы счисления.
+    const user = users.find(userId => userId.id === id);
+    res.send(user)
 });
 
 //POST
-app.post('/', (req, res) => {
-    fs.readFile('user.txt', 'utf8', (err, data) => {
-        let users = [];
+router.post('/', (req, res) => {
+    const newUser = {
+        id: users.length ? users[users.length - 1].id + 1 : 1,
+        ...req.body,
+        age: Math.floor(Math.random() * 100) + 1
+    };
+    users.push(newUser); // Добавляем нового пользователя в массив
+    fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
         if (err) {
-            console.error(`Error reading file:`, err);
-        } else {
-            users = (JSON.parse(data));
+            console.error(`Error writing file:`, err);
         }
-        const newUser = {
-            id: users.length ? users[users.length - 1].id + 1 : 1,
-            ...req.body,
-            age: Math.floor(Math.random() * (65 - 18 + 1)) + 18,
-        };
-        users.push(newUser); // Добавляем нового пользователя в массив
-
-        fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
-            if (err) {
-                console.error(`Error writing file:`, err);
-            }
-            res.json(newUser);
-        });
-    });        
-});
-    
+        res.json(newUser);
+    });
+});        
+  
 //PUT   
-app.put('/:id', (req, res) => {
+router.put('/:id', (req, res) => {
     //id - тут является динамическим параметром
     const id = parseInt(req.params.id);
     //Функция parseInt() принимает строку в качестве аргумента 
@@ -98,47 +100,32 @@ app.put('/:id', (req, res) => {
     //  тогда значение свойства name можно получить через req.params.name. Дефолтным значением является {}.
     const newName = req.body.name;
     //reg.body - Содержит пары ключ-значение данных, содержащихся в запросе. 
-    fs.readFile('user.txt', 'utf8', (err, data) => { 
+    const user = users.find(userId => userId.id === id);// функция .find() перебирает весь массив и 
+    // выбирает пользователя с нужным id после записывает его в переменную user
+    user.name = newName; // Изменяем имя
+    fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
         if (err) {
-            console.error(`Error reading file:`, err);
+            console.error(`Error writing file:`, err);
         }
-        let users = JSON.parse(data);//users создается после чтения файла user.txt. и представляется в виде массива
-        let user = users.find(userId => userId.id === id);// функция .find() перебирает весь массив и 
-        // выбирает пользователя с нужным id после записывает его в переменную user
-        user.name = newName; // Изменяем имя
-        fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
-            if (err) {
-                console.error(`Error writing file:`, err);
-            }
-            res.json({ message: "New name", user });
-        });
+        res.json({ message: "New name", user });
     });
 });
 
 //DELETE
-app.delete('/:id', (req, res) => {
+router.delete('/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    
-    fs.readFile('user.txt', 'utf8', (err, data) => {
-        if (err) {
-            console.log(`Read error:`, err);
-        }
-       
-        let users = data.trim() ? JSON.parse(data) : [];
-        let resultUsers = users.filter(user => user.id !== id);
+    let users = data.trim() ? JSON.parse(data) : [];
+    let resultUsers = users.filter(user => user.id !== id);
         //Метод filter() создаёт новый массив со всеми элементами, прошедшими проверку, задаваемую в передаваемой функции.
-
-        fs.writeFile('user.txt', JSON.stringify(resultUsers, null, 2), 'utf8', (err) => {
-            if (err) {
-                console.error(`Error writing file:`, err);
-            }
-            res.json({ message: "User delete" , id});
-        });
-    });      
+    fs.writeFile('user.txt', JSON.stringify(resultUsers, null, 2), 'utf8', (err) => {
+        if (err) {
+            console.error(`Error writing file:`, err);
+        }
+        res.json({ message: "User delete" , id});
+    });
+});      
     
-});
-
 //5.создаем порт для прослушивания /метод который запускает сервер
-app.listen(PORT, (error) => {
-    error ? console.log(error) : console.log(`Example app listening on port ${PORT}`)
+app.listen(process.env.DB_PORT, (error) => {
+    error ? console.log(error) : console.log(`App listening on http://localhost:${process.env.DB_PORT}/`)
 });
