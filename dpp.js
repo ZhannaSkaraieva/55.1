@@ -16,18 +16,14 @@ app.use((err, req, res, next) => {
 })
 
 // 2. Генерация массива.
-const users = Array.from({ length: 20 }, (_,i) => ({
+const usersArray = Array.from({ length: 20 }, (_,i) => ({
     id: i + 1,
     name: 'User' + (i + 1),
     age: Math.floor(Math.random() * 100) + 1
 }));
-const data = [];
-users.forEach(user => {
-    data.push(user); 
-});
 
 // 3.Создание файла
-fs.writeFile('user.txt', JSON.stringify(data, null, 2), 'utf8', (err) => { 
+fs.writeFile('user.txt', JSON.stringify(usersArray, null, 2), 'utf8', (err) => { 
     // syntax -  JSON.stringify(value, replacer, space) -  
     // это метод, который превращает объект data в строку JSON с форматированием.
     // value - Значение для преобразования в строку JSON. 
@@ -43,9 +39,8 @@ fs.writeFile('user.txt', JSON.stringify(data, null, 2), 'utf8', (err) => {
 );
 
 //вызывается каждый раз перед каждым API запросом
-const readFile = (req, res, next) => {
+const readUsersFile = (req, res, next) => {
     fs.readFile('user.txt', 'utf8', (err, data) => {
-        
         if (err) {
             return res.status(500).send({ error: 'Error reading' });
         }
@@ -59,7 +54,7 @@ const readFile = (req, res, next) => {
         };
     });
 };
-app.use(readFile);
+router.use(readUsersFile);
 
 // Использование роутера
 app.use('/user', router);
@@ -69,7 +64,10 @@ app.use('/user', router);
 router.get('/:id', (req, res) => { //вызываем функцию    =>    //API метод
     const id = parseInt(req.params.id);//parseInt() принимает строку в качестве 
     // аргумента и возвращает целое число в соответствии с указанным основанием системы счисления.
-    const user = users.find(userId => userId.id === id);
+    const user = req.users.find(userId => userId.id === id);
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    };
     res.send(user)
 });
 
@@ -77,11 +75,11 @@ router.get('/:id', (req, res) => { //вызываем функцию    =>    //
 router.post('/', (req, res) => {
     const newUser = {
         id: users.length ? users[users.length - 1].id + 1 : 1,
-        ...req.body,
+        name: req.body.name,
         age: Math.floor(Math.random() * 100) + 1
     };
-    users.push(newUser); // Добавляем нового пользователя в массив
-    fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
+    req.users.push(newUser); // Добавляем нового пользователя в массив
+    fs.writeFile('user.txt', JSON.stringify(req.users, null, 2), 'utf8', (err) => {
         if (err) {
             console.error(`Error writing file:`, err);
         }
@@ -95,15 +93,18 @@ router.put('/:id', (req, res) => {
     const id = parseInt(req.params.id);
     //Функция parseInt() принимает строку в качестве аргумента 
     // и возвращает целое число в соответствии с указанным основанием системы счисления.Другими словами приводим id к числу
-    //req.params.id -Данное свойство представляет собой объект, содержащий свойства, 
+    //req.params.id -Данное свойство представляет собой объект, содержащий свойства,
     // связанные с именованными параметрами маршрута. Например, если у нас имеется маршрут user/:name,
     //  тогда значение свойства name можно получить через req.params.name. Дефолтным значением является {}.
     const newName = req.body.name;
     //reg.body - Содержит пары ключ-значение данных, содержащихся в запросе. 
-    const user = users.find(userId => userId.id === id);// функция .find() перебирает весь массив и 
+    const user = req.users.find(userId => userId.id === id);// функция .find() перебирает весь массив и 
     // выбирает пользователя с нужным id после записывает его в переменную user
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    };
     user.name = newName; // Изменяем имя
-    fs.writeFile('user.txt', JSON.stringify(users, null, 2), 'utf8', (err) => {
+    fs.writeFile('user.txt', JSON.stringify(req.users, null, 2), 'utf8', (err) => {
         if (err) {
             console.error(`Error writing file:`, err);
         }
@@ -114,8 +115,7 @@ router.put('/:id', (req, res) => {
 //DELETE
 router.delete('/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    let users = data.trim() ? JSON.parse(data) : [];
-    let resultUsers = users.filter(user => user.id !== id);
+    const resultUsers = req.users.filter(userId => userId.id !== id);
         //Метод filter() создаёт новый массив со всеми элементами, прошедшими проверку, задаваемую в передаваемой функции.
     fs.writeFile('user.txt', JSON.stringify(resultUsers, null, 2), 'utf8', (err) => {
         if (err) {
