@@ -1,28 +1,28 @@
 
-// 1. Импортируем модули.
+// 1. IMPORT MODULES.
 const express = require('express');
 const app = express();
 const fs = require('node:fs');
 const router = express.Router();
 require('dotenv').config(); 
 
-//middleware позволяет Express автоматически разбирать JSON-данные из POST, PUT, PATCH запросов.
+// MIDDLEWARE позволяет Express автоматически разбирать JSON-данные из POST, PUT, PATCH запросов.
 //обязательно
 app.use(express.json()); 
 
-// middleware для обработки ошибки
-app.use((err, req, res, next) => {
+// MIDDLEWARE для обработки ошибки
+app.use((err, _req, _res, next) => {
     console.log(err.stack); //логирование стека ошибки
 })
 
-// 2. Генерация массива.
+// 2. GENERATING AN ARRAY.
 const usersArray = Array.from({ length: 20 }, (_,i) => ({
     id: i + 1,
     name: 'User' + (i + 1),
     age: Math.floor(Math.random() * 100) + 1
 }));
 
-// 3.Создание файла
+// 3.CREATING A FILE.
 fs.writeFile('user.txt', JSON.stringify(usersArray, null, 2), 'utf8', (err) => { 
     // syntax -  JSON.stringify(value, replacer, space) -  
     // это метод, который превращает объект data в строку JSON с форматированием.
@@ -38,7 +38,7 @@ fs.writeFile('user.txt', JSON.stringify(usersArray, null, 2), 'utf8', (err) => {
 }
 );
 
-//вызывается каждый раз перед каждым API запросом
+// MIDDLEWARE вызывается каждый раз перед каждым API запросом
 const readUsersFile = (req, res, next) => {
     fs.readFile('user.txt', 'utf8', (err, data) => {
         if (err) {
@@ -56,11 +56,19 @@ const readUsersFile = (req, res, next) => {
 };
 router.use(readUsersFile);
 
-// Использование роутера
+// 5. НАСТРОЙКА МАРШРУТИЗАЦИИ
 app.use('/user', router);
 
-// 4.сoздание запросов
-//GET
+// 4. СОЗДАНИЕ ЗАПРОСОВ
+
+//GET - получаем всех пользователей 
+// http://localhost:3000/user  POSTMAN
+router.get('/', (req, res) => { //вызываем функцию    =>    //API метод
+    res.send(req.users);
+});
+
+//GET - вызов аользователя по id
+// http://localhost:3000/user/:id  POSTMAN
 router.get('/:id', (req, res) => { //вызываем функцию    =>    //API метод
     const id = parseInt(req.params.id);//parseInt() принимает строку в качестве 
     // аргумента и возвращает целое число в соответствии с указанным основанием системы счисления.
@@ -68,13 +76,15 @@ router.get('/:id', (req, res) => { //вызываем функцию    =>    //
     if (!user) {
         return res.status(404).json({ error: 'User not found' });
     };
-    res.send(user)
+    res.send(user);
 });
 
-//POST
+//POST - добавление нового USER по имени
+//http://localhost:3000/user
+//{"name": "Alex"}
 router.post('/', (req, res) => {
     const newUser = {
-        id: users.length ? users[users.length - 1].id + 1 : 1,
+        id: req.users.length ? req.users[req.users.length - 1].id + 1 : 1,
         name: req.body.name,
         age: Math.floor(Math.random() * 100) + 1
     };
@@ -83,11 +93,17 @@ router.post('/', (req, res) => {
         if (err) {
             console.error(`Error writing file:`, err);
         }
-        res.json(newUser);
+        res.json({
+            message: 'User successfully added',
+            newUser,
+            users: req.users
+        });
     });
 });        
   
-//PUT   
+//PUT - изменение имени User по id
+//http://localhost:3000/user/5
+////{"name": "Alex"}
 router.put('/:id', (req, res) => {
     //id - тут является динамическим параметром
     const id = parseInt(req.params.id);
@@ -108,11 +124,11 @@ router.put('/:id', (req, res) => {
         if (err) {
             console.error(`Error writing file:`, err);
         }
-        res.json({ message: "New name", user });
+        res.json({ message: "New name", user , users: req.users});
     });
 });
 
-//DELETE
+//DELETE - удаление по id
 router.delete('/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const resultUsers = req.users.filter(userId => userId.id !== id);
@@ -121,7 +137,7 @@ router.delete('/:id', (req, res) => {
         if (err) {
             console.error(`Error writing file:`, err);
         }
-        res.json({ message: "User delete" , id});
+        res.json({ message: `User delete + ${id}`, users: resultUsers});
     });
 });      
     
